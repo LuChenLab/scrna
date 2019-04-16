@@ -120,7 +120,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
   bic = function(X,Z,alpha,beta,ws){
     N = length(X)
     K = length(alpha)
-    res = -2*elbo(X,Z,alpha,beta,ws) + 3*K*log(N)
+    res = -2*elbo(X,Z,alpha,beta,ws) + (3*K+1)*log(N)
   }
   em_optim0 = function(X, init_mus, init_sgs, init_ws, nround=200, debug=FALSE){
     alpha = mu2alpha(init_mus)

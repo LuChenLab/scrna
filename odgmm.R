@@ -106,7 +106,11 @@ odgmm = function(X,n_max_comp,debug=FALSE){
     XX = rep(0,N)
     for(i in seq(K+1))
     {
-      XX = XX + Z[,i] * (log(ws[i])+dnorm(X, mean = mus[i], sd = sds[i], log = TRUE))
+      if(ws[i]==0){
+        next
+      }
+      inds = Z[,i]!=0
+      XX[inds] = XX[inds] + Z[inds,i] * (log(ws[i])+dnorm(X[inds], mean = mus[i], sd = sds[i], log = TRUE))
     }
     return (sum(XX))
   }
@@ -144,6 +148,9 @@ odgmm = function(X,n_max_comp,debug=FALSE){
       alpha = res[[1]]
       beta = res[[2]]
       ws = res[[3]]
+      #if(is.na(logml_new) || is.na(logml)){
+      #  return(list(NA,NA,NA,NA,NA))
+      #}
       if( abs(logml_new-logml) < abs(1e-6*logml) )
       {
         logml = logml_new
@@ -270,6 +277,13 @@ odgmm = function(X,n_max_comp,debug=FALSE){
   sigma0 = 0.1
   K = n_max_comp - 1
   
+  kflag=n_max_comp>=1
+  if(kflag){
+    print('There must be at least 1 components, the dropout component. n_max_comp>=1.')
+    paste0('curr n_max_comp=',n_max_comp)
+    stopifnot(kflag)
+  }
+  
   # list(alpha,beta,ws,logml,Z)
   curr_res = list(NA,NA,NA,NA,NA,NA)
   curr_bic = NA
@@ -281,7 +295,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
     res_bic = res[[6]]
     if(is.na(curr_bic)){
       flag=FALSE
-    }else if(any(res[[3]]<0.01)){
+    }else if(length(res[[3]])>1 && any(res[[3]][-1]<0.01)){
       # if some component has less than 1% weight
       flag=FALSE
     }else if(res_bic-curr_bic < -6){
@@ -330,7 +344,7 @@ sgs = sds^2
 X = rnorm(n=N,mean=mus[components],sd=sds[components])
 
 ## part 2: estimating the components
-res = odgmm(X,5)
+res = odgmm(X,4,debug=F)
 
 alpha = res[[1]]
 beta = res[[2]]
@@ -351,4 +365,3 @@ ey = gmmpdf(x, emus, esgs, ews)
 plot(density(X,bw='sj'),ylim=c(0,0.9),main="GMM vs kernel density")
 lines(x,ey,col="red",lwd=2)
 legend("topright",c("Estimated GMM Density","Kernel Density"),col=c("red","black"),lwd=2)
-

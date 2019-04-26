@@ -278,7 +278,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
   K = n_max_comp - 1
   
   kflag=n_max_comp>=1
-  if(kflag){
+  if(!kflag){
     print('There must be at least 1 components, the dropout component. n_max_comp>=1.')
     paste0('curr n_max_comp=',n_max_comp)
     stopifnot(kflag)

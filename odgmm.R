@@ -58,7 +58,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
       ZZ = ZZ + tmp
     }
     tsum = sum(ZZ)
-    if(tsum==0){
+    if(is.na(tsum) || tsum==0){
       return(NA)
     }else{
       return (sum(XX)/tsum)
@@ -75,7 +75,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
       XX = XX + Z[,(k+1)] * (X - mus[k+1])^2 * beta[j] / vars[k+1] 
     }
     tsum = sum(Z[,seq(j+1,K+1)])
-    if(tsum==0){
+    if(is.na(tsum) || tsum==0){
       return(NA)
     }else{
       return (sum(XX)/tsum)

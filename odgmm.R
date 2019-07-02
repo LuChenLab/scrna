@@ -323,6 +323,9 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         stopifnot(kflag)
     }
     
+    # auxiliary function
+    norm_center = function(w) {x=w[2:(length(w)-1)]; return(x/sum(x))}
+    
     # list(alpha,beta,ws,logml,Z)
     curr_res = list(NA,NA,NA,NA,NA,NA)
     curr_bic = NA
@@ -334,8 +337,10 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         res_bic = res[[6]]
         if(is.na(curr_bic)){
             flag=FALSE
-        }else if(length(res[[3]])>1 && any(res[[3]][-1]<0.01)){
+            #}else if(length(res[[3]])>1 && any(res[[3]][-1]<0.01)){
             # if some component has less than 1% weight
+        }else if(length(res[[3]])>1 && any(norm_center(res[[3]])<0.05)){
+            # if some component has less than 5% weight over the "real" (not dropout, uniform) component
             flag=FALSE
         }else if(res_bic-curr_bic < -6){
             flag=FALSE

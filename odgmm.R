@@ -260,7 +260,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         }
         
         flag = FALSE
-        min_beta = 0.8
+        min_beta = 1
         # try making beta greater than 1
         if(any(beta<min_beta)){
             beta[beta<min_beta]=min_beta
@@ -356,10 +356,12 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         res_bic = res$bic
         if(is.na(curr_bic)){
             flag=FALSE
-        }else if(length(res$ws)>1 && any(norm_center(res$ws)<0.1)){
-            # if some component has less than 10% weight over the "real" (not dropout, uniform) component
+        }
+        else if(length(res$ws)>1 && any(res$ws[2:(length(res$ws)-1)]<0.1)){
+            # if some "real" (not dropout, uniform) component has less than 1% weight
             flag=FALSE
-        }else if(res_bic-curr_bic < 0){
+        }
+        else if(res_bic-curr_bic < 0){
             flag=FALSE
         }
         if(!flag){
@@ -410,7 +412,7 @@ sgs = sds^2
 #X = X_tab_with_3_peaks_Tuba1a
 
 for(i in seq(1,dim(gene_exprs_387)[1])){
-#for(i in seq(104,104)){
+#for(i in seq(41,41)){
     cat(paste('','','',paste0('i=',i),'',sep='\n'))
     #for(i in seq(46,46)){
     pdf_file = paste0("./img/res_",i,"_plot.pdf")

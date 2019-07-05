@@ -115,7 +115,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
             new_alpha[j] = cal_alpha(X,Z,alpha,beta,j)
             new_beta[j] = cal_beta(X,Z,alpha,beta,j)
         }
-        return(list(new_alpha,new_beta,new_ws))
+        return(list(alpha=new_alpha,beta=new_beta,ws=new_ws))
     }
     exp_log_like = function(X, Z, alpha, beta, ws){
         mus = alpha2mu(alpha)
@@ -151,6 +151,20 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         K = length(alpha)
         res = -2*elbo(X,Z,alpha,beta,ws) + (3*K+2)*log(N)
     }
+    # generate the result
+    gen_res = function(alpha=NA,beta=NA,ws=NA,logml=NA,Z=NA,bic=NA){
+        if(any(is.na(alpha))){
+            mus = NA
+        }else{
+            mus = alpha2mu(alpha)
+        }
+        if(any(is.na(beta))){
+            sds = NA
+        }else{
+            sds = beta2sigma(beta)
+        }
+        return(list(alpha=alpha,beta=beta,ws=ws,logml=logml,Z=Z,bic=bic,mus=mus,sigmas=sds))
+    }
     em_optim0 = function(X, init_mus, init_sgs, init_ws, nround=200, debug=FALSE){
         alpha = mu2alpha(init_mus)
         beta = var2beta(init_sgs)
@@ -165,19 +179,19 @@ odgmm = function(X,n_max_comp,debug=FALSE){
             Z = estep(X, alpha, beta, ws)
             res = mstep(X,Z,alpha,beta,ws)
             
-            if(any(is.na(res[[1]])) || any(is.na(res[[2]])) || any(is.na(res[[3]]))){
+            if(any(is.na(res$alpha)) || any(is.na(res$beta)) || any(is.na(res$ws))){
                 print(paste0('Inference failed after ',i,' iterations.'))
-                return(list(NA,NA,NA,NA,NA))
+                return(gen_res())
             }
-            logml_new = elbo(X, Z, res[[1]], res[[2]], res[[3]])
+            logml_new = elbo(X, Z, res$alpha, res$beta, res$ws)
             logml_res[i] = logml_new
-            alpha = res[[1]]
-            beta = res[[2]]
-            ws = res[[3]]
+            alpha = res$alpha
+            beta = res$beta
+            ws = res$ws
             
             if(is.na(logml_new) || is.na(logml)){
                 print(paste0('Inference failed after ',i,' iterations.'))
-                return(list(NA,NA,NA,NA,NA))
+                return(gen_res())
             }
             if( abs(logml_new-logml) < abs(1e-6*logml) )
             {
@@ -195,29 +209,30 @@ odgmm = function(X,n_max_comp,debug=FALSE){
             idx = seq(3,nround)
             plot(idx,logml_res[idx])
         }
-        return(list(alpha,beta,ws,logml,Z))
+        return(gen_res(alpha,beta,ws,logml,Z))
     }
     em_optim = function(X, init_mus, init_sgs, init_ws, nround=200,debug=FALSE){
         res = em_optim0(X, init_mus, init_sgs, init_ws, nround, debug=debug)
         
         #debug=T
         
-        if(any(is.na(res[[1]]))){
+        if(any(is.na(res$alpha))){
             if(debug){
                 print('Get NA in the opmization.')
             }
             return(res)
         }
-        alpha = res[[1]]
-        beta = res[[2]]
-        ws = res[[3]]
-        logml = res[[4]]
-        Z = res[[5]]
+        alpha = res$alpha
+        beta = res$beta
+        ws = res$ws
+        logml = res$logml
+        Z = res$Z
         flag = FALSE
-        # try making alpha greater than 0
-        if(any(alpha<0)){
+        # try making alpha greater than 0.1
+        min_alpha = 3*sigma0
+        if(any(alpha<min_alpha)){
             if(debug){
-                print('Some alpha is less than 0.')
+                cat('Some alpha is less than min_alpha',alpha,"\n",sep='')
                 disp_paras(alpha,beta,ws,logml,'curr paras: ')
             }
             K = length(alpha)
@@ -231,6 +246,8 @@ odgmm = function(X,n_max_comp,debug=FALSE){
             alpha = mu2alpha(tmus)
             beta = var2beta(tvars)
             ws = tws
+            
+            alpha[alpha<min_alpha] = min_alpha
             flag = TRUE
         }
         # update Z and logml if parameter updated
@@ -243,9 +260,10 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         }
         
         flag = FALSE
+        min_beta = 0.8
         # try making beta greater than 1
-        if(any(beta<1)){
-            beta[beta<1]=1
+        if(any(beta<min_beta)){
+            beta[beta<min_beta]=min_beta
             flag = TRUE
             
             if(debug){
@@ -262,7 +280,7 @@ odgmm = function(X,n_max_comp,debug=FALSE){
             }
         }
         
-        return(list(alpha,beta,ws,logml,Z))
+        return(gen_res(alpha,beta,ws,logml,Z))
     }
     disp_paras = function(alpha,beta,ws,logml, infostr=''){
         cat(paste( infostr,
@@ -298,10 +316,10 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         max_ind = which.max(logml_arr)
         # list(alpha,beta,ws,logml,Z)
         res = res_list[[max_ind]]
-        if(!is.na(res[[4]])){
-            res[[6]] = bic(X,res[[5]],res[[1]],res[[2]],res[[3]])
+        if(!is.na(res$logml)){
+            res$bic = bic(X,res$Z,res$alpha,res$beta,res$ws)
         }else{
-            res[[6]] = NA
+            res$bic = NA
         }
         return(res)
     }
@@ -327,22 +345,21 @@ odgmm = function(X,n_max_comp,debug=FALSE){
     norm_center = function(w) {x=w[2:(length(w)-1)]; return(x/sum(x))}
     
     # list(alpha,beta,ws,logml,Z)
-    curr_res = list(NA,NA,NA,NA,NA,NA)
+    #curr_res = list(NA,NA,NA,NA,NA,NA)
+    curr_res = gen_res()
     curr_bic = NA
     for(i in seq(K,1,-1)){
-        print('')
+        cat("\n")
         print(paste0('Model estimation with ',i+1,' components'))
         flag = TRUE
         res = em_algo(X,i,debug=debug)
-        res_bic = res[[6]]
+        res_bic = res$bic
         if(is.na(curr_bic)){
             flag=FALSE
-            #}else if(length(res[[3]])>1 && any(res[[3]][-1]<0.01)){
-            # if some component has less than 1% weight
-        }else if(length(res[[3]])>1 && any(norm_center(res[[3]])<0.05)){
-            # if some component has less than 5% weight over the "real" (not dropout, uniform) component
+        }else if(length(res$ws)>1 && any(norm_center(res$ws)<0.1)){
+            # if some component has less than 10% weight over the "real" (not dropout, uniform) component
             flag=FALSE
-        }else if(res_bic-curr_bic < -6){
+        }else if(res_bic-curr_bic < 0){
             flag=FALSE
         }
         if(!flag){
@@ -351,17 +368,19 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         }else{
             break
         }
+        cat("curr_bic = ",curr_bic,"\n")
     }
     
-    alpha = curr_res[[1]]
-    beta = curr_res[[2]]
-    ws = curr_res[[3]]
-    logml = curr_res[[4]]
+    alpha = curr_res$alpha
+    beta = curr_res$beta
+    ws = curr_res$ws
+    logml = curr_res$logml
     infostr = paste0('final model: ',length(alpha)+1,' components, bic=', curr_bic, ' ')
     disp_paras(alpha,beta,ws,logml,infostr)
     
     return(curr_res)
 }
+
 gmmpdf = function(x, mus, sigmas, ws, log=FALSE){
     K = length(mus)
     N = length(x)
@@ -390,39 +409,46 @@ sgs = sds^2
 #X = rnorm(n=N,mean=mus[components],sd=sds[components])
 #X = X_tab_with_3_peaks_Tuba1a
 
-for(i in seq(dim(X_tab_in_5_C)[1])){
+for(i in seq(1,dim(gene_exprs_387)[1])){
+#for(i in seq(104,104)){
     cat(paste('','','',paste0('i=',i),'',sep='\n'))
     #for(i in seq(46,46)){
     pdf_file = paste0("./img/res_",i,"_plot.pdf")
     pdf(file=pdf_file)
-    X = unname(X_tab_in_5_C[i,])
-    
+    X = unname(gene_exprs_387[i,])
     
     ## part 2: estimating the components
     res = odgmm(X,4,debug=T)
     
-    alpha = res[[1]]
-    beta = res[[2]]
-    ws = res[[3]]
-    logml = res[[4]]
-    Z = res[[5]]
-    final_bic = res[[6]]
+    alpha = res$alpha
+    beta = res$beta
+    ws = res$ws
+    logml = res$logml
+    Z = res$Z
+    final_bic = res$bic
     
     ## part 3: display results
     # display fitting with original density
-    emus = alpha2mu(alpha)
-    esgs = beta2sigma(beta)
+    emus = res$mus
+    esgs = res$sigmas
     ews = ws
     
     x = seq(-2,max(X)+1,0.01)
     ey = gmmpdf(x, emus, esgs, ews) + tail(ews,n=1)/max(X)
     #ey[x>0] = ey[x>0] + tail(ews,n=1)/max(X)
     
+    x1 = emus[-1]
+    ey1 = gmmpdf(x1, emus, esgs, ews) + tail(ews,n=1)/max(X)
+    
     K = length(alpha)
-    plot(density(X,bw='sj'),ylim=c(0,0.9),main=paste0("GMM vs kernel density, i=",i,', K=', K, ', ws=', paste(round(ews[2:(K+1)], digits = 2),collapse = ' ')))
+    tryCatch(    plot(density(X,bw='sj'),ylim=c(0,0.9),main=paste0("GMM vs kernel density, i=",i,', K=', K, ', ws=', paste(round(ews[2:(K+1)], digits = 2),collapse = ' '))) ,
+     error = function(cond){ plot(density(X),ylim=c(0,0.9),main=paste0("GMM vs kernel density, i=",i,', K=', K, ', ws=', paste(round(ews[2:(K+1)], digits = 2),collapse = ' ')))})
+    #plot(density(X,bw='sj'),ylim=c(0,0.9),main=paste0("GMM vs kernel density, i=",i,', K=', K, ', ws=', paste(round(ews[2:(K+1)], digits = 2),collapse = ' ')))
     lines(x,ey,col="red",lwd=2)
+    lines(x1,ey1,col="red",type="h")
     legend("topright",c("Estimated GMM Density","Kernel Density"),col=c("red","black"),lwd=2)
     dev.off()
 }
+
 
 

@@ -11,7 +11,7 @@ gmm_impute = function(X,X_mus_list,k=5){
     IX[,i] = res[,1]
     IX_val[,i] = res[,2]
   }
-  return(list(IX,IX_val))
+  return(list(impute_label_mat=IX,impute_val_mat=IX_val))
 }
 
 # impute the missing values in y, based on similarity given by X
@@ -52,19 +52,13 @@ gmm_impute0 = function(X, y, y_mus, k){
   return(cbind(y,y_impute_val))
 }
 
-alpha2mu = function(alpha){
-  # global var mu0
-  mu0 = 0 # warning: check the actual value in odgmm.R
-  return ( cumsum(c(mu0,alpha)) )
-}
-
 # process the output of odgmm with uniform component
 # extract the cell labels (component id) of this gene
-# TODO: modify the output of odgmm.R
 proc_res = function(res){
-  Z = res[[5]]
-  alpha = res[[1]]
-  mus = alpha2mu(alpha)
+  # Z = res[[5]]
+  # mus = res[[1]]
+  Z = res$Z  # res[[5]]#
+  mus = res$mus # res[[1]]#
   
   L = dim(Z)[2]
   y = apply(Z,1,which.max)
@@ -72,12 +66,17 @@ proc_res = function(res){
   
   new_mus = c(mus[-1],mean(mus[-1]))
   
-  return(list(y, new_mus))
+  return(list(label=y, mus=new_mus))
 }
 
+####  NOTE: specify the GMM result and gene express matrix here  #######
+GMM_res = GMM_output_in_K_4   # a list, 1 x n_gene
+gene_expr_mat = t(gene_exprs_387)   # n_cell x n_gene
+
 # collect results for all genes and select genes with high expression
-n_gene = 7879
-n_cell = 1638
+n_gene = length(GMM_output_in_K_4)
+n_cell = dim(gene_expr_mat)[1]
+stopifnot(dim(gene_expr_mat)[2]==n_gene)
 
 X = matrix(0, nrow = n_cell, ncol = n_gene)
 xmus <- vector("list", length = n_gene)
@@ -85,9 +84,9 @@ xmus <- vector("list", length = n_gene)
 ##GMM_output is a 7879 long list contain res 
 for(i in seq(n_gene)){
   cat("proc gene",i,"\n")
-  tmpres = proc_res(GMM_output[[i]]$res)
-  X[,i] = tmpres[[1]]
-  xmus[[i]] = tmpres[[2]]
+  tmpres = proc_res(GMM_res[[i]]$res)
+  X[,i] = tmpres$label
+  xmus[[i]] = tmpres$mus
 }
 
 # filter genes
@@ -100,13 +99,9 @@ XX = X[,gene_inds]
 XX_mus = xmus[gene_inds]
 
 res = gmm_impute(XX, XX_mus)
-X_impute = res[[1]]
-X_val_impute = res[[2]]  # NA means values that does not need to be imputed
+X_impute = res$impute_label_mat
+X_val_impute = res$impute_val_mat # NA means values that does not need to be imputed
 
-# get original data
-# orig_data = TODO
-
-# Let us assume the actual data is orig_data (same size as X_impute)
-# then the actual imputed data is
+orig_data = gene_expr_mat[,gene_inds]
 valid_inds = is.na(X_val_impute)
 X_val_impute[valid_inds] = orig_data[valid_inds]

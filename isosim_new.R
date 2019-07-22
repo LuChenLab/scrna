@@ -231,7 +231,7 @@ read2_gene_pos = matrix(0,nrow=n_frag,ncol=2)
 
 for(n in seq(n_frag)){
   if(n%%1000 == 0){
-    cat(paste0('n=',n,"\n"))
+    cat(paste0('n=', n, " ", round(n*100/n_frag, 2), "%", "\n"))
   }
   
   real_iso_ind = frag_label[n]

@@ -87,7 +87,7 @@ plot(gene_flag_vec,type='l')
 exon_ind_all = which(gene_flag_vec)  # mapping from collapsed isoform to gene
 n_pos = sum(gene_flag_vec)
 sin_period = n_pos/3     # 3 periods in all data
-pos_mass = sin(seq(n_pos)/sin_period*2*pi) + 1.5
+pos_mass = sin(seq(n_pos)/sin_period*2*pi) + 5
 local_pos_mass = pos_mass/sum(pos_mass)
 pos_pmf_all = rep(0,gene_length)
 pos_pmf_all[exon_ind_all] = local_pos_mass
@@ -282,4 +282,62 @@ for(n in seq(n_frag)){
     }
   }
 }
+
+# step 3.4: derive the mapping from isoforms to all exons
+FX = matrix(data=0, nrow=n_frag, ncol=n_isoform)
+FY = matrix(data=0, nrow=n_frag, ncol=n_isoform)
+for(n in seq(n_frag)){
+  for(k in seq(n_isoform)){
+    if(I[n,k]!=1){
+      next
+    }
+    tmpwinind = ref_to_winset_ind(local_iso_arr[[k]], X[n,k])
+    tmp_gene_pos = winset_to_ref_ind(iso_arr[[k]], tmpwinind)
+    tmpwinind = ref_to_winset_ind(all_iso_exon_on_gene, tmp_gene_pos)
+    FX[n,k] = winset_to_ref_ind(all_iso_exon_local, tmpwinind)
+    
+    tmpwinind = ref_to_winset_ind(local_iso_arr[[k]], Y[n,k])
+    tmp_gene_pos = winset_to_ref_ind(iso_arr[[k]], tmpwinind)
+    tmpwinind = ref_to_winset_ind(all_iso_exon_on_gene, tmp_gene_pos)
+    FY[n,k] = winset_to_ref_ind(all_iso_exon_local, tmpwinind)
+  }
+}
+
+############  part 4:  display generated pair-end reads  ######################
+real_pmf = rep(0, gene_length)
+for(i in seq(n_isoform)){
+  tmpflag = get_flag_vec(iso_arr[[i]], gene_length)
+  real_pmf[tmpflag] = real_pmf[tmpflag] + iso_weights[i] * (pos_pmf_all[tmpflag]/sum(pos_pmf_all[tmpflag]))
+}
+
+exon_boundary_start = get_start_pos(all_iso_exon_on_gene)
+exon_boundary_end = get_end_pos(all_iso_exon_on_gene)
+
+plot(pos_pmf_all[exon_ind_all],
+     xlab = 'position on concatenated exons',
+     ylab = "probability mass function",
+     ylim = c(0,max(pos_pmf_all[exon_ind_all])),
+     type='l')
+
+plot(real_pmf,type='l')
+lines(exon_boundary_start,real_pmf[exon_boundary_start],col='red',type='h')
+lines(exon_boundary_end,real_pmf[exon_boundary_end],col='green',type='h')
+
+frag_st_gene = rep(0,n_frag)
+frag_en_gene = rep(0,n_frag)
+
+for(i in seq(n_frag)){
+  frag_st_gene[i] = FX[i, frag_label[i]]
+  frag_en_gene[i] = FY[i, frag_label[i]]
+}
+
+plot(real_pmf[exon_ind_all], type="l")
+# lines(get_start_pos(all_iso_exon_local),local_pos_mass[get_start_pos(all_iso_exon_local)],col='red',type='h')
+# lines(get_end_pos(all_iso_exon_local),local_pos_mass[get_end_pos(all_iso_exon_local)],col='green',type='h')
+
+# lines(density(frag_st_gene,bw='sj'),col="green")
+# lines(density(frag_en_gene,bw='sj'),col="blue")
+lines(density(c(frag_st_gene,frag_en_gene),bw='sj'),col="red")
+abline(v = get_start_pos(all_iso_exon_local), col="blue", lty=2)
+
 

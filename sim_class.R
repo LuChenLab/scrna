@@ -757,6 +757,27 @@ gen_frag_len = function(n, mu=0, sigma=1){
   return(y)
 }
 
+# sliding window mean, average of the input data over "-window, +window" , jump by "step"
+# http://coleoguy.blogspot.com/2014/04/sliding-window-analysis.html
+runmean <- function(data, window, step=1){
+  total <- length(data)
+  spots <- seq(from=1, to=(total), by=step)
+  result <- vector(length = length(spots))
+  for(i in 1:length(spots)){
+    st = spots[i]-window
+    en = spots[i]+window
+    if(st<0){
+      st = 1
+    }
+    if(en>total){
+      en = total
+    }
+    result[i] <- mean(data[st:en])
+    #result[i] <- mean(data[spots[i]:(spots[i]+window)])
+  }
+  return(result)
+}
+
 ############ simulation functions end ####################
 
 # window_tests()

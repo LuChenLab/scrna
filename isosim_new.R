@@ -5,19 +5,19 @@ set.seed(5)
 ############  part 1:  parameter configurations  ######################
 
 n_all_exon = 10
-n_isoform = 4
+n_isoform = 3
 
 gene_start_pos = 0
-gene_length = 10000
+gene_length = 1000
 
-exon_avg_len = 1000
-exon_sd_len = 100
+exon_avg_len = 100
+exon_sd_len = 10
 
-fragment_avg_len = 300
-fragment_len_sd = 30
+fragment_avg_len = 30
+fragment_len_sd = 3
 
-read_avg_len = 100
-read_len_sd = 10
+read_avg_len = 10
+read_len_sd = 1
 
 read_coverage_depth = 20
 
@@ -302,6 +302,14 @@ for(n in seq(n_frag)){
     FY[n,k] = winset_to_ref_ind(all_iso_exon_local, tmpwinind)
   }
 }
+
+iso_theta_ind_arr = vector("list",length = n_isoform)
+theta_len = sum(gene_flag_vec)
+for(k in seq(n_isoform)){
+  tmpwinset = map_winset(all_iso_exon_on_gene, all_iso_exon_local, iso_arr[[k]])
+  iso_theta_ind_arr[[k]] = which( get_flag_vec(tmpwinset, theta_len) )
+}
+
 
 ############  part 4:  display generated pair-end reads  ######################
 real_pmf = rep(0, gene_length)

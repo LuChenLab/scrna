@@ -523,6 +523,10 @@ get_local_winset = function(winset){
   
   win_len = get_win_len(winset@windows)
   
+  if(length(win_len)==1){
+    return(winset_factory(win_list_factory(1,win_len)))
+  }
+  
   tmp = cumsum(win_len)
   new_en_pos = tmp
   new_st_pos = c(1,tmp[1:(length(tmp)-1)]+1)

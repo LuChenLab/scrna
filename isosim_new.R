@@ -5,7 +5,7 @@ set.seed(5)
 ############  part 1:  parameter configurations  ######################
 
 n_all_exon = 10
-n_isoform = 3
+n_isoform = 4
 
 gene_start_pos = 0
 gene_length = 1000
@@ -47,7 +47,8 @@ local_iso_arr = vector("list",length=n_isoform)         # isoform on isoform, al
 i = 1
 n_trial = 0
 while(i<=n_isoform){
-  tmp_exon_inds = gen_isoform(all_exons)
+  # tmp_exon_inds = gen_isoform(all_exons)
+  tmp_exon_inds = gen_isoform(all_exons,exon_prob=list(a=0.2,b=0.3))
   tmp_iso = winset_factory(all_exons@windows[tmp_exon_inds])
   if(i>1){
     flag = FALSE
@@ -303,13 +304,25 @@ for(n in seq(n_frag)){
   }
 }
 
-iso_theta_ind_arr = vector("list",length = n_isoform)
 theta_len = sum(gene_flag_vec)
+iso_theta_ind_arr = vector("list",length = n_isoform)  # isoform specific thetas' index on the collapsed full set of theta 
 for(k in seq(n_isoform)){
   tmpwinset = map_winset(all_iso_exon_on_gene, all_iso_exon_local, iso_arr[[k]])
   iso_theta_ind_arr[[k]] = which( get_flag_vec(tmpwinset, theta_len) )
 }
 
+aux_reads_theta_map = list(
+  numerator = vector("list", theta_len),      # index of each theta in the map function FX and FY in numerator
+  denominator = vector("list", theta_len)     # index of corresponding isoforms of each theta
+)
+
+#aux_reads_theta_map = vector("list", theta_len) # index of each theta in the map function FX and FY
+tmp_val_inds = which(I>0)
+for(i in seq(theta_len)){
+  tmpinds = FX[tmp_val_inds]==i | FY[tmp_val_inds]==i
+  aux_reads_theta_map$numerator[[i]] = tmp_val_inds[tmpinds]
+  aux_reads_theta_map$denominator[[i]] = as.logical(lapply(iso_theta_ind_arr, function(x){return(i %in% x)}))
+}
 
 ############  part 4:  display generated pair-end reads  ######################
 real_pmf = rep(0, gene_length)
@@ -339,7 +352,7 @@ for(i in seq(n_frag)){
   frag_en_gene[i] = FY[i, frag_label[i]]
 }
 
-plot(real_pmf[exon_ind_all], type="l")
+plot(real_pmf[exon_ind_all], type="l",ylim=c(0,1.5*max(real_pmf)))
 # lines(get_start_pos(all_iso_exon_local),local_pos_mass[get_start_pos(all_iso_exon_local)],col='red',type='h')
 # lines(get_end_pos(all_iso_exon_local),local_pos_mass[get_end_pos(all_iso_exon_local)],col='green',type='h')
 

@@ -188,7 +188,7 @@ lines(density(c(frag_st_gene,frag_en_gene),bw='sj'),col="red")
 lines(est_pmf,col="green")
 abline(v = get_start_pos(all_iso_exon_local), col="blue", lty=2)
 legend("topleft", legend=c("true", "data", "estimated"),
-       col=c("black","red", "green"), lty=1:2, cex=0.8)
+       col=c("black","red", "green"), lty=1, cex=0.8)
 
 # par(mfrow=c(2,1))
 # par(mar=c(1,1,1,1))
@@ -210,5 +210,9 @@ for(i in seq(n_isoform)){
   abline(v = get_start_pos(local_iso_arr[[i]]), col="blue", lty=2)
 }
 
+plot(local_pos_mass,type="l",main="theta pmf",ylim=c(0,2*max(local_pos_mass)), xlab = "index on full pos set")
+lines(res$theta,col="red")
+legend("topleft", legend=c("true", "estimated"),
+       col=c("black","red"), lty=c(1,1), cex=0.8)
 
 

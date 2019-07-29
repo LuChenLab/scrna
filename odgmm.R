@@ -36,28 +36,15 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         K = length(alpha)
         N = length(X)
         Z = matrix(0,nrow=N,ncol=K+2)
-        for(i in seq(K+1))
-        {
-            Z[,i] = log(ws[i]) + dnorm(X, mean = mus[i], sd = sds[i], log = TRUE)
-        }
-        
-        if(any(is.na(Z))){
-            print('Z contains NA')
-        }
-        
-        # if(!is.na(ws[K+2]) & ws[K+2]>0){
-        #   Z[uni_valid_inds,K+2] = log(ws[K+2]) + uni_log_density
-        # }else{
-        #   print('ws[K+2] is 0. Quit.')
-        # }
-        # Z[!uni_valid_inds,K+2] = 0
+        XX = matrix(rep(X,K+1), nrow=N, ncol = K+1)
+        XX = t(dnorm(t(XX), mean = mus, sd = sds, log = TRUE))
+        XX[XX==Inf]=0
+        Z[,seq(K+1)] = XX + matrix( rep( log(ws[seq(K+1)]), each=N ), nrow=N ) 
         Z[,K+2] = log(ws[K+2]) + uni_log_density
         
-        
         if(any(is.na(Z))){
             print('Z contains NA')
         }
-        
         
         maxz = apply(Z,1,max)
         Z = exp(Z - maxz)
@@ -122,28 +109,26 @@ odgmm = function(X,n_max_comp,debug=FALSE){
         sds = beta2sigma(beta)
         K = length(alpha)
         N = length(X)
-        XX = rep(0,N)
-        for(i in seq(K+1))
-        {
-            if(ws[i]==0){
-                next
-            }
-            inds = Z[,i]!=0
-            XX[inds] = XX[inds] + Z[inds,i] * (log(ws[i])+dnorm(X[inds], mean = mus[i], sd = sds[i], log = TRUE))
-        }
-        XX = XX  + Z[,K+2] * (log(ws[K+2])+uni_log_density)
-        #XX[uni_valid_inds] = XX[uni_valid_inds]  + Z[uni_valid_inds,K+2] * (log(ws[K+2])+uni_log_density)
         
-        # if(sum(XX)>0){
-        #   print('expected lik greater than 0')
-        # }
-        return (sum(XX))
+        XX = matrix(rep(X,K+1), nrow=N, ncol = K+1)
+        
+        tmpX = t(dnorm(t(XX), mean = mus, sd = sds, log = TRUE))
+        tmpX[tmpX==Inf] = 0
+        tmpX = tmpX + matrix( rep( log(ws[seq(K+1)]), each=N ), nrow=N) 
+        tmpX = cbind(tmpX, rep(log(ws[K+2])+uni_log_density, N))
+        tmpX[tmpX==-Inf] = 0
+        return(sum(tmpX*Z))
     }
     elbo = function(X,Z,alpha,beta, ws){
         LZ = Z
         LZ[Z!=0] = log(Z[Z!=0])
         entropy = -1 * Z * LZ
+        
         lb = exp_log_like(X,Z,alpha,beta, ws)+sum(entropy)
+        if(is.na(lb) || lb==-Inf){
+            # exp_log_like(X,Z,alpha,beta, ws)
+            print("lower bounder is na or -Inf.")
+        }
         return (lb)
     }
     bic = function(X,Z,alpha,beta,ws){
@@ -193,6 +178,11 @@ odgmm = function(X,n_max_comp,debug=FALSE){
                 print(paste0('Inference failed after ',i,' iterations.'))
                 return(gen_res())
             }
+            if(logml_new==-Inf){
+                print(logml_new)
+                print(logml)
+            }
+            
             if( abs(logml_new-logml) < abs(1e-6*logml) )
             {
                 logml = logml_new
@@ -398,7 +388,7 @@ gmmpdf = function(x, mus, sigmas, ws, log=FALSE){
 }
 
 ####  main code #####
-#set.seed(1)
+set.seed(1)
 
 ## part 1: simulate data from Gaussian mixture
 N = 2000

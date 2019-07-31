@@ -1,18 +1,45 @@
 library(e1071)
+library(tictoc)
+
+# progressbar
+# From: https://stackoverflow.com/questions/51213293/is-it-possible-to-get-a-progress-bar-with-foreach-and-a-multicore-kind-of-back
+progBar <- function(ii, N, per = 10) {
+  if (ii %in% seq(1, N, per)) {
+    x <- round(ii * 100 / N)
+    message("[ ", 
+            paste(rep("=", x), collapse = ""),
+            paste(rep("-", 100 - x), collapse = ""), 
+            " ] ", x, "%", "\r",
+            appendLF = FALSE)
+  }
+}
+
 
 # impute missing values into 
-gmm_impute = function(X,X_mus_list,k=5){
+gmm_impute = function(X,X_mus_list,k=5, n.cores=10){
   n_gene = dim(X)[2]
   IX = X
   IX_val = X
-  for(i in seq(n_gene)){
-    cat('Impute column ',i,"\n")
-    res = gmm_impute0(X[,-i], X[,i], X_mus_list[[i]], k)
-    IX[,i] = res[,1]
-    IX_val[,i] = res[,2]
+  
+  # @since 2019.07.31
+  # using multi processes to accelerate calculation
+  registerDoMC(n.cores)
+  tic("Imputation")
+  res = foreach(i = seq(n_gene), pb=icount()) %dopar% {
+    gmm_impute0(X[,-i], X[,i], X_mus_list[[i]], k)
+    progBar(pb, n_gene)
   }
+  print("")
+  toc()
+  
+  for(i in 1:length(res)) {
+    IX[,i] = res[[i]][,1]
+    IX_val[,i] = res[[i]][,2]
+  }
+  
   return(list(impute_label_mat=IX,impute_val_mat=IX_val))
 }
+
 
 # impute the missing values in y, based on similarity given by X
 # X: n x d matrix, n cells, d genes/features
@@ -34,7 +61,10 @@ gmm_impute0 = function(X, y, y_mus, k){
   NN = matrix(0, nrow = n_test, ncol = n_train)
   for(i in seq(n_test)){
     for(j in seq(n_train)){
-      d[i,j] = hamming.distance(X[test_inds[i],],X[train_inds[j],])
+      d[i,j] = hamming.distance(          # @since 2019.07.31 force convert variable type to avoid C stack close to limit
+        as.numeric(X[test_inds[i],]),
+        as.numeric(X[train_inds[j],])
+      )
     }
     NN[i,] = order(d[i,])
   }
